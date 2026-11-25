@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="pl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Symulator Ataku Man-in-the-Middle (MitM)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            dark: '#0b0f19',
+                            card: '#111827',
+                            border: '#1f293d',
+                            cyan: '#06b6d4',
+                            emerald: '#10b981',
+                            rose: '#f43f5e',
+                            amber: '#f59e0b',
+                            purple: '#a855f7'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f293d;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #06b6d4;
+        }
+        
+        .glow-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.35);
+        }
+        .glow-rose {
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.35);
+        }
+        .glow-emerald {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.35);
+        }
+        .glow-amber {
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.35);
+        }
+        
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 0.4; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .animate-pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .gradient-border {
+            border: 1px solid transparent;
+            background-image: linear-gradient(#111827, #111827), linear-gradient(to right, #06b6d4, #a855f7);
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+        }
+    </style>
+</head>
+<body class="bg-cyber-dark text-slate-100 font-sans min-h-screen flex flex-col selection:bg-cyber-cyan selection:text-slate-900">
+
+    <!-- Header / Navbar -->
+    <header class="border-b border-cyber-border bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
+                    <i class="fa-solid fa-user-ninja text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">
+                        Symulator Ataku Man-in-the-Middle
+                    </h1>
+                    <p class="text-xs text-slate-400">Interaktywne środowisko edukacyjne z zakresu cyberbezpieczeństwa</p>
+                </div>
+            </div>
+
+            <!-- Quick Controls & Sound -->
+            <div class="flex items-center space-x-3 text-sm">
+                <button id="soundToggleBtn" onclick="toggleSound()" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-2">
+                    <i id="soundIcon" class="fa-solid fa-volume-high text-cyan-400"></i>
+                    <span id="soundLabel">Dźwięk: Wł.</span>
+                </button>
+                <button onclick="resetSimulation()" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-2">
+                    <i class="fa-solid fa-rotate-right text-slate-400"></i>
+                    <span>Reset</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Section 1: Security Mode Selector & Info Banner -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <button onclick="setProtocol('http')" id="modeBtnHTTP" class="mode-card text-left p-4 rounded-xl border transition-all duration-200 bg-slate-900 border-rose-500/50 hover:border-rose-500 glow-rose">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">Niezabezpieczony</span>
+                    <i class="fa-solid fa-[#fa2] fa-unlock text-rose-400 text-lg"></i>
+                </div>
+                <h3 class="font-bold text-base text-slate-100 flex items-center gap-2">
+                    Protokół HTTP
+                </h3>
+                <p class="text-xs text-slate-400 mt-1">Brak szyfrowania. Cały ruch (hasła, tokeny, przelewy) jest przesyłany otwartym tekstem (Plaintext).</p>
+            </button>
+
+            <button onclick="setProtocol('https-weak')" id="modeBtnHTTPSWeak" class="mode-card text-left p-4 rounded-xl border transition-all duration-200 bg-slate-900 border-amber-500/30 hover:border-amber-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">Luka w certyfikacie</span>
+                    <i class="fa-solid fa-triangle-exclamation text-amber-400 text-lg"></i>
+                </div>
+                <h3 class="font-bold text-base text-slate-100 flex items-center gap-2">
+                    HTTPS (SSL Strip / Podrobiony CA)
+                </h3>
+                <p class="text-xs text-slate-400 mt-1">Ofiara ignoruje ostrzeżenie o fałszywym certyfikacie lub atakujący wymusza powrót do HTTP (SSL Stripping).</p>
+            </button>
+
+            <button onclick="setProtocol('https-secure')" id="modeBtnHTTPSSecure" class="mode-card text-left p-4 rounded-xl border transition-all duration-200 bg-slate-900 border-emerald-500/30 hover:border-emerald-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">W pełni bezpieczny</span>
+                    <i class="fa-solid fa-shield-halved text-emerald-400 text-lg"></i>
+                </div>
+                <h3 class="font-bold text-base text-slate-100 flex items-center gap-2">
+                    HTTPS + TLS 1.3 + HSTS
+                </h3>
+                <p class="text-xs text-slate-400 mt-1">Szyfrowanie end-to-end z weryfikacją zaufanego urzędu certyfikacji (CA) i wymuszoną ochroną HSTS.</p>
+            </button>
+        </div>
+
+        <!-- Section 2: Visual Network Topology Diagram -->
+        <div class="bg-cyber-card border border-cyber-border rounded-2xl p-6 relative overflow-hidden shadow-xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
+                    <i class="fa-solid fa-network-wired"></i> Topologia Sieciowa i Przepływ Pakietów
+                </h2>
+                <div id="connectionStatusBadge" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                    Tryb: <span class="font-bold text-rose-400">HTTP (Brak szyfrowania)</span>
+                </div>
+            </div>
+
+            <!-- Canvas SVG Visual Lines & Nodes Layer -->
+            <div class="relative w-full h-64 bg-slate-950/60 rounded-xl border border-slate-800/80 flex items-center justify-between px-8 sm:px-16 overflow-hidden">
+                
+                <!-- SVG Connection Lines -->
+                <svg class="absolute inset-0 w-full h-full pointer-events-none" id="networkSvg">
+                    <!-- Path Client to MitM -->
+                    <path id="pathClientToMitm" d="M 120 128 L 380 128" stroke="#334155" stroke-width="3" stroke-dasharray="6,6" />
+                    <!-- Path MitM to Server -->
+                    <path id="pathMitmToServer" d="M 420 128 L 680 128" stroke="#334155" stroke-width="3" stroke-dasharray="6,6" />
+                    
+                    <!-- Animated Packet Element -->
+                    <g id="animatedPacket" opacity="0" transform="translate(0,0)">
+                        <circle r="14" fill="#06b6d4" class="shadow-lg" id="packetCircle" />
+                        <i class="fa-solid fa-envelope text-white text-xs" style="transform: translate(-5px, -6px);"></i>
+                        <text id="packetText" y="-20" x="0" text-anchor="middle" fill="#38bdf8" class="text-[10px] font-mono font-bold">DATA</text>
+                    </g>
+                </svg>
+
+                <!-- NODE 1: CLIENT -->
+                <div class="relative z-10 flex flex-col items-center">
+                    <div id="nodeClient" class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-900 border-2 border-cyan-500/60 flex flex-col items-center justify-center text-cyan-400 shadow-lg shadow-cyan-500/10 transition-all duration-300">
+                        <i class="fa-solid fa-laptop text-2xl sm:text-3xl mb-1"></i>
+                        <span class="text-[10px] sm:text-xs font-bold text-slate-200">Klient</span>
+                    </div>
+                    <div class="mt-2 text-center">
+                        <span class="block text-xs font-semibold text-slate-300">Ofiara (Browser)</span>
+                        <span class="text-[10px] font-mono text-slate-500">IP: 192.168.1.105</span>
+                    </div>
+                </div>
+
+                <!-- NODE 2: MITM ATTACKER -->
+                <div class="relative z-10 flex flex-col items-center">
+                    <div id="nodeMitm" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-slate-900 border-2 border-rose-500/60 flex flex-col items-center justify-center text-rose-500 shadow-lg shadow-rose-500/20 transition-all duration-300 relative">
+                        <div class="absolute -top-3 px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 text-[10px] font-mono uppercase font-bold">
+                            MitM Node
+                        </div>
+                        <i class="fa-solid fa-user-ninja text-3xl sm:text-4xl mb-1 text-rose-400"></i>
+                        <span class="text-[10px] sm:text-xs font-bold text-slate-200">Pośrednik</span>
+                    </div>
+                    <div class="mt-2 text-center">
+                        <span class="block text-xs font-semibold text-rose-400" id="mitmNodeStatusText">ARP Spoofing Active</span>
+                        <span class="text-[10px] font-mono text-slate-500">IP: 192.168.1.66 (Proxy)</span>
+                    </div>
+                </div>
+
+                <!-- NODE 3: TARGET SERVER -->
+                <div class="relative z-10 flex flex-col items-center">
+                    <div id="nodeServer" class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-900 border-2 border-emerald-500/60 flex flex-col items-center justify-center text-emerald-400 shadow-lg shadow-emerald-500/10 transition-all duration-300">
+                        <i class="fa-solid fa-server text-2xl sm:text-3xl mb-1"></i>
+                        <span class="text-[10px] sm:text-xs font-bold text-slate-200">Serwer</span>
+                    </div>
+                    <div class="mt-2 text-center">
+                        <span class="block text-xs font-semibold text-slate-300">Bank.pl</span>
+                        <span class="text-[10px] font-mono text-slate-500">IP: 217.74.65.12</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Section 3: Interactive Simulation Controls (3 Grid Panels) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- PANEL 1: CLIENT FORM -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-5 flex flex-col justify-between shadow-lg">
+                <div>
+                    <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
+                        <h3 class="font-bold text-slate-200 flex items-center gap-2 text-sm">
+                            <i class="fa-solid fa-paper-plane text-cyan-400"></i> 1. Formularz Klienta
+                        </h3>
+                        <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800">
+                            HTTP Client
+                        </span>
+                    </div>
+
+                    <form id="transferForm" onsubmit="handleSendTransfer(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1">Odbiorca Przelewu</label>
+                            <input type="text" id="inputRecipient" value="Jan Kowalski (PL89 1050 0000 1111)" required
+                                   class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 transition">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1">Kwota Transakcji (PLN)</label>
+                            <input type="number" id="inputAmount" value="1500" min="1" required
+                                   class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 transition">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1">Tytuł Przelewu</label>
+                            <input type="text" id="inputTitle" value="Zapłata za fakturę #1042" required
+                                   class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 transition">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1">Hasło SMS / Token Auth</label>
+                            <input type="password" id="inputPassword" value="TajneHaslo2025!" required
+                                   class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-500 transition">
+                        </div>
+
+                        <button type="submit" id="btnSendPacket" class="w-full mt-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow-md shadow-cyan-900/30 transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-lock-open text-xs" id="btnSendIcon"></i>
+                            <span>Wyślij Przelew Bankowy</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- PANEL 2: MITM INTERCEPTOR CONTROLS -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-5 flex flex-col justify-between shadow-lg relative border-l-4 border-l-rose-500">
+                <div>
+                    <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
+                        <h3 class="font-bold text-slate-200 flex items-center gap-2 text-sm">
+                            <i class="fa-solid fa-user-ninja text-rose-400"></i> 2. Konfiguracja Atakującego (MitM)
+                        </h3>
+                        <span class="text-[10px] font-mono text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-800">
+                            Proxy Interceptor
+                        </span>
+                    </div>
+
+                    <!-- MitM Strategy Selection -->
+                    <div class="space-y-3 mb-4">
+                        <label class="block text-xs font-medium text-slate-400">Tryb Ingerencji Pośrednika:</label>
+                        
+                        <div class="space-y-2">
+                            <label class="flex items-start gap-2 p-2 rounded-lg bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700 text-xs">
+                                <input type="radio" name="mitmAction" value="passthrough" onchange="updateMitmSettings()" class="mt-0.5 text-rose-500 focus:ring-rose-500">
+                                <div>
+                                    <span class="font-semibold text-slate-300 block">Brak Ingerencji (Pass-Through)</span>
+                                    <span class="text-[10px] text-slate-500">Przepuszczaj pakiety bez czytania i zmiany.</span>
+                                </div>
+                            </label>
+
+                            <label class="flex items-start gap-2 p-2 rounded-lg bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700 text-xs">
+                                <input type="radio" name="mitmAction" value="sniff" checked onchange="updateMitmSettings()" class="mt-0.5 text-rose-500 focus:ring-rose-500">
+                                <div>
+                                    <span class="font-semibold text-amber-400 block">Podsłuch (Sniffing / Eavesdropping)</span>
+                                    <span class="text-[10px] text-slate-500">Zapisuj dane w jawnym tekście, ale nie modyfikuj ich.</span>
+                                </div>
+                            </label>
+
+                            <label class="flex items-start gap-2 p-2 rounded-lg bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700 text-xs">
+                                <input type="radio" name="mitmAction" value="tamper" onchange="updateMitmSettings()" class="mt-0.5 text-rose-500 focus:ring-rose-500">
+                                <div>
+                                    <span class="font-semibold text-rose-400 block">Modyfikacja Danych (Data Tampering)</span>
+                                    <span class="text-[10px] text-slate-500">Podmień dane transakcji zanim dotrą do banku.</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Tamper Inputs (Visible only when 'tamper' is selected) -->
+                    <div id="tamperSettingsContainer" class="p-3 bg-rose-950/20 border border-rose-900/40 rounded-xl space-y-2 text-xs">
+                        <span class="font-semibold text-rose-400 block text-[11px] mb-1">
+                            <i class="fa-solid fa-pen-to-square"></i> Parametry Podmiany Danych:
+                        </span>
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-0.5">Podmień Odbiorcę na:</label>
+                            <input type="text" id="mitmNewRecipient" value="HAKER KRADZIEJ (PL99 6666 0000 9999)"
+                                   class="w-full bg-slate-950 border border-rose-900/60 rounded px-2.5 py-1 text-xs text-rose-300 font-mono focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-0.5">Podmień Kwotę na (PLN):</label>
+                            <input type="number" id="mitmNewAmount" value="45000"
+                                   class="w-full bg-slate-950 border border-rose-900/60 rounded px-2.5 py-1 text-xs text-rose-300 font-mono focus:outline-none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL 3: TARGET SERVER & BANK DATABASE -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-5 flex flex-col justify-between shadow-lg border-l-4 border-l-emerald-500">
+                <div>
+                    <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
+                        <h3 class="font-bold text-slate-200 flex items-center gap-2 text-sm">
+                            <i class="fa-solid fa-vault text-emerald-400"></i> 3. Rejestr Serwera Bankowego
+                        </h3>
+                        <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
+                            Bank Server DB
+                        </span>
+                    </div>
+
+                    <!-- Bank Account Info -->
+                    <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 mb-4 text-xs space-y-1">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Konto Ofiary:</span>
+                            <span class="font-mono text-slate-200">PL89 1050 0000 1111</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Początkowe Saldo:</span>
+                            <span class="font-mono text-emerald-400 font-bold" id="bankBalance">100 000.00 PLN</span>
+                        </div>
+                    </div>
+
+                    <!-- Ledger Table of Received Transactions -->
+                    <div>
+                        <span class="block text-xs font-semibold text-slate-400 mb-2">Ostatnio Wykonane Operacje:</span>
+                        <div id="bankLedgerList" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            <div class="text-[11px] text-slate-500 italic text-center py-4 border border-dashed border-slate-800 rounded-lg">
+                                Brak zarejestrowanych transakcji. Wyślij formularz, aby przetestować ruch.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Section 4: Real-Time Payload Inspector & Raw Packet Data -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Real-time Payload Inspector -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-5 shadow-lg">
+                <div class="flex justify-between items-center pb-3 mb-3 border-b border-slate-800">
+                    <h3 class="font-bold text-slate-200 flex items-center gap-2 text-sm">
+                        <i class="fa-solid fa-code text-cyan-400"></i> Inspektor Zawartości Pakietu (Payload Diff)
+                    </h3>
+                    <span id="inspectorStatusBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                        Oczekiwanie na ruch...
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-[11px]">
+                    <!-- Client Outgoing JSON -->
+                    <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <span class="text-[10px] font-sans font-bold text-cyan-400 block mb-1">Wysłane przez Klienta:</span>
+                        <pre id="codeClientPayload" class="text-slate-300 whitespace-pre-wrap break-all">{}</pre>
+                    </div>
+
+                    <!-- Server Received JSON -->
+                    <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <span class="text-[10px] font-sans font-bold text-emerald-400 block mb-1">Odebrane przez Serwer:</span>
+                        <pre id="codeServerPayload" class="text-slate-300 whitespace-pre-wrap break-all">{}</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Timeline & Security Logs -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-5 shadow-lg flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center pb-3 mb-3 border-b border-slate-800">
+                        <h3 class="font-bold text-slate-200 flex items-center gap-2 text-sm">
+                            <i class="fa-solid fa-list-check text-indigo-400"></i> Dziennik Zdarzeń i Analiza Bezpieczeństwa
+                        </h3>
+                        <button onclick="clearConsole()" class="text-[10px] text-slate-400 hover:text-slate-200">
+                            Wyczyść logi
+                        </button>
+                    </div>
+
+                    <div id="consoleLogContainer" class="bg-slate-950 p-3 rounded-lg border border-slate-800 font-mono text-[11px] h-40 overflow-y-auto space-y-1.5">
+                        <div class="text-slate-500">[SYSTEM] Symulator gotowy. Wybierz protokół i wyślij przelew.</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Section 5: Educational Explanations & Cyber Defense Guide -->
+        <div class="bg-cyber-card border border-cyber-border rounded-2xl p-6 shadow-xl">
+            <div class="border-b border-slate-800 pb-4 mb-6">
+                <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-graduation-cap text-cyan-400"></i> Baza Wiedzy: Jak Działa i Jak Zapobiegać Atakom MitM?
+                </h2>
+                <p class="text-xs text-slate-400 mt-1">Zrozum mechanizmy sieciowe wykorzystywane przez hakerów oraz technologie chroniące nowoczesny Internet.</p>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="flex flex-wrap gap-2 border-b border-slate-800 pb-3 mb-6">
+                <button onclick="openEduTab('tab1')" id="btnTab1" class="edu-tab-btn px-4 py-2 rounded-lg text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    <i class="fa-solid fa-diagram-project mr-1.5"></i> Techniki Przechwytywania (MitM)
+                </button>
+                <button onclick="openEduTab('tab2')" id="btnTab2" class="edu-tab-btn px-4 py-2 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:bg-slate-700">
+                    <i class="fa-solid fa-key mr-1.5"></i> Rola Szyfrowania SSL/TLS
+                </button>
+                <button onclick="openEduTab('tab3')" id="btnTab3" class="edu-tab-btn px-4 py-2 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:bg-slate-700">
+                    <i class="fa-solid fa-user-shield mr-1.5"></i> Zaawansowana Ochrona (HSTS & Pinning)
+                </button>
+            </div>
+
+            <!-- Tab 1 Content -->
+            <div id="tab1" class="edu-tab-content space-y-4 text-xs text-slate-300">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <div class="text-rose-400 font-bold mb-2 flex items-center gap-2 text-sm">
+                            <i class="fa-solid fa-network-wired"></i> ARP Spoofing / Poisoning
+                        </div>
+                        <p class="leading-relaxed text-slate-400">
+                            W sieciach lokalnych (Wi-Fi/LAN) atakujący wysyła fałszywe ramki ARP do komputera ofiary, podając swój adres MAC jako adres routera. W efekcie cały ruch zanim trafi do Internetu, przechodzi przez komputer hakera.
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <div class="text-amber-400 font-bold mb-2 flex items-center gap-2 text-sm">
+                            <i class="fa-solid fa-wifi"></i> Rogue Wi-Fi Hotspot (Evil Twin)
+                        </div>
+                        <p class="leading-relaxed text-slate-400">
+                            Tworzenie fałszywych, otwartych sieci Wi-Fi o nazwach takich jak "Free_Cafe_WiFi" lub "Airport_Guest". Nieuważny użytkownik łączy się bezpośrednio do punktu dostępowego kontrolowanego przez atakującego.
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <div class="text-purple-400 font-bold mb-2 flex items-center gap-2 text-sm">
+                            <i class="fa-solid fa-globe"></i> DNS Poisoning / Zatrucie DNS
+                        </div>
+                        <p class="leading-relaxed text-slate-400">
+                            Modyfikacja odpowiedzi serwera DNS tak, aby wpisanie adresu <code class="bg-slate-900 px-1 rounded text-cyan-300">bank.pl</code> kierowało przeglądarkę na fałszywy adres IP serwera należącego do cyberprzestępcy.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2 Content -->
+            <div id="tab2" class="edu-tab-content hidden space-y-4 text-xs text-slate-300">
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <h3 class="text-sm font-bold text-emerald-400 flex items-center gap-2">
+                        <i class="fa-solid fa-lock"></i> Jak TLS/HTTPS uniemożliwia podgląd i modyfikację?
+                    </h3>
+                    <p class="leading-relaxed text-slate-400">
+                        Podczas uzgadniania połączenia (TLS Handshake) serwer przedstawia swój **Certyfikat Cyfrowy** podpisany przez zaufany Urząd Certyfikacji (CA). Przeglądarka weryfikuje ten podpis. 
+                    </p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="font-semibold text-slate-200 block mb-1">Poufność (Confidentiality)</span>
+                            <span class="text-slate-400">Dane są zaszyfrowane symetrycznym kluczem sesyjnym (AES-GCM/ChaCha20). Pośrednik widzi jedynie ciąg losowych bajtów.</span>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="font-semibold text-slate-200 block mb-1">Integralność (Integrity)</span>
+                            <span class="text-slate-400">Każdy pakiet zawiera kod MAC (Message Authentication Code). Próba modyfikacji choćby 1 bitu przez MitM powoduje natychmiastowe odrzucenie pakietu.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3 Content -->
+            <div id="tab3" class="edu-tab-content hidden space-y-4 text-xs text-slate-300">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                        <h4 class="font-bold text-cyan-400 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-shield-cat"></i> HSTS (HTTP Strict Transport Security)
+                        </h4>
+                        <p class="text-slate-400 leading-relaxed">
+                            Nagłówek HTTP wysyłany przez serwer, który instruuje przeglądarkę: <em>"Z tym serwisem łącz się WYŁĄCZNIE przez HTTPS przez najbliższy rok. Nigdy nie pozwalaj na połączenie HTTP."</em> Udrabnia to próby ataków SSL Stripping.
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                        <h4 class="font-bold text-cyan-400 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-thumbtack"></i> Certificate / Public Key Pinning
+                        </h4>
+                        <p class="text-slate-400 leading-relaxed">
+                            Aplikacja mobilna lub przeglądarka ma na stałe zakodowany odcisk palca (hash) certyfikatu serwera. W przypadku zainstalowania w systemie fałszywego certyfikatu CA przez hakera, aplikacja odrzuci połączenie.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-cyber-border bg-slate-950 py-4 mt-8 text-center text-xs text-slate-500">
+        <p>Interaktywny Symulator Zdarzeń Cyberbezpieczeństwa • Zbudowano dla celów edukacyjnych i pokazowych</p>
+    </footer>
+
+    <!-- JavaScript Simulation Engine -->
+    <script>
+        // --- State Management ---
+        const state = {
+            protocol: 'http', // 'http' | 'https-weak' | 'https-secure'
+            mitmMode: 'sniff', // 'passthrough' | 'sniff' | 'tamper'
+            isAnimating: false,
+            soundEnabled: true,
+            bankBalance: 100000.00
+        };
+
+        // --- Web Audio API Synth Effects ---
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) audioCtx = new AudioContext();
+            }
+        }
+
+        function playBeep(freq, type = 'sine', duration = 0.15) {
+            if (!state.soundEnabled) return;
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.error("Audio error", e);
+            }
+        }
+
+        function toggleSound() {
+            state.soundEnabled = !state.soundEnabled;
+            const icon = document.getElementById('soundIcon');
+            const label = document.getElementById('soundLabel');
+            if (state.soundEnabled) {
+                icon.className = 'fa-solid fa-volume-high text-cyan-400';
+                label.innerText = 'Dźwięk: Wł.';
+                playBeep(600);
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark text-slate-500';
+                label.innerText = 'Dźwięk: Wył.';
+            }
+        }
+
+        // --- UI Protocol Mode Switches ---
+        function setProtocol(proto) {
+            if (state.isAnimating) return;
+            state.protocol = proto;
+            playBeep(450);
+
+            // Update UI Card styles
+            const btnHTTP = document.getElementById('modeBtnHTTP');
+            const btnWeak = document.getElementById('modeBtnHTTPSWeak');
+            const btnSec = document.getElementById('modeBtnHTTPSSecure');
+            const badge = document.getElementById('connectionStatusBadge');
+            const btnSendIcon = document.getElementById('btnSendIcon');
+
+            [btnHTTP, btnWeak, btnSec].forEach(btn => {
+                btn.classList.remove('glow-rose', 'glow-amber', 'glow-emerald', 'border-rose-500', 'border-amber-500', 'border-emerald-500');
+                btn.classList.add('border-slate-800');
+            });
+
+            if (proto === 'http') {
+                btnHTTP.classList.add('border-rose-500', 'glow-rose');
+                badge.innerHTML = 'Tryb: <span class="font-bold text-rose-400">HTTP (Brak szyfrowania)</span>';
+                btnSendIcon.className = 'fa-solid fa-lock-open text-rose-400';
+                logConsole('[INFO] Wybrano niezaszyfrowany protokół HTTP. Dane przesyłane jawnym tekstem.', 'text-rose-400');
+            } else if (proto === 'https-weak') {
+                btnWeak.classList.add('border-amber-500', 'glow-amber');
+                badge.innerHTML = 'Tryb: <span class="font-bold text-amber-400">HTTPS (Brak zaufania / SSL Strip)</span>';
+                btnSendIcon.className = 'fa-solid fa-shield-cat text-amber-400';
+                logConsole('[OSTRZEŻENIE] Wybrano HTTPS ze słabą weryfikacją. MitM może podszyć się za serwer.', 'text-amber-400');
+            } else {
+                btnSec.classList.add('border-emerald-500', 'glow-emerald');
+                badge.innerHTML = 'Tryb: <span class="font-bold text-emerald-400">HTTPS + TLS 1.3 (Bezpieczny)</span>';
+                btnSendIcon.className = 'fa-solid fa-lock text-emerald-400';
+                logConsole('[BEZPIECZEŃSTWO] Włączono pełne szyfrowanie TLS 1.3 z zaufanym Certyfikatem CA.', 'text-emerald-400');
+            }
+        }
+
+        function updateMitmSettings() {
+            const selectedRadio = document.querySelector('input[name="mitmAction"]:checked');
+            if (selectedRadio) {
+                state.mitmMode = selectedRadio.value;
+                playBeep(350);
+            }
+
+            const mitmStatusText = document.getElementById('mitmNodeStatusText');
+            if (state.mitmMode === 'passthrough') {
+                mitmStatusText.innerText = 'Tryb: Pass-Through';
+                mitmStatusText.className = 'block text-xs font-semibold text-slate-400';
+            } else if (state.mitmMode === 'sniff') {
+                mitmStatusText.innerText = 'Tryb: Active Sniffing';
+                mitmStatusText.className = 'block text-xs font-semibold text-amber-400';
+            } else {
+                mitmStatusText.innerText = 'Tryb: Data Tampering!';
+                mitmStatusText.className = 'block text-xs font-semibold text-rose-400 animate-pulse';
+            }
+        }
+
+        // --- Console Log Utility ---
+        function logConsole(msg, colorClass = 'text-slate-300') {
+            const container = document.getElementById('consoleLogContainer');
+            const timeStr = new Date().toLocaleTimeString('pl-PL', { hour12: false });
+            const item = document.createElement('div');
+            item.className = `${colorClass} flex items-start gap-2`;
+            item.innerHTML = `<span class="text-slate-600 font-mono text-[10px] select-none">[${timeStr}]</span> <span>${msg}</span>`;
+            container.appendChild(item);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearConsole() {
+            const container = document.getElementById('consoleLogContainer');
+            container.innerHTML = '<div class="text-slate-500">[SYSTEM] Wyszczyszczono logi.</div>';
+        }
+
+        // --- Tab Navigation in Knowledge Base ---
+        function openEduTab(tabId) {
+            document.querySelectorAll('.edu-tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.edu-tab-btn').forEach(btn => {
+                btn.className = 'edu-tab-btn px-4 py-2 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:bg-slate-700';
+            });
+
+            document.getElementById(tabId).classList.remove('hidden');
+            const activeBtn = document.getElementById('btn' + tabId.charAt(0).toUpperCase() + tabId.slice(1));
+            if (activeBtn) {
+                activeBtn.className = 'edu-tab-btn px-4 py-2 rounded-lg text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+            }
+            playBeep(500);
+        }
+
+        // --- Simulation Execution Engine & Animation ---
+        function handleSendTransfer(e) {
+            e.preventDefault();
+            if (state.isAnimating) return;
+
+            const recipient = document.getElementById('inputRecipient').value;
+            const amount = parseFloat(document.getElementById('inputAmount').value);
+            const title = document.getElementById('inputTitle').value;
+            const password = document.getElementById('inputPassword').value;
+
+            const clientPayload = {
+                action: "TRANSFER",
+                senderAccount: "PL89 1050 0000 1111",
+                recipientAccount: recipient,
+                amountPLN: amount,
+                title: title,
+                authToken: password
+            };
+
+            // Reset Inspector View
+            document.getElementById('codeClientPayload').innerText = JSON.stringify(clientPayload, null, 2);
+            document.getElementById('codeServerPayload').innerText = "Czekam na pakiet...";
+            document.getElementById('inspectorStatusBadge').innerText = "Wysyłanie...";
+            document.getElementById('inspectorStatusBadge').className = "text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800";
+
+            logConsole(`[KLIENT] Inicjalizacja transakcji przelewu (${amount} PLN)...`, 'text-cyan-400');
+            startPacketAnimation(clientPayload);
+        }
+
+        function startPacketAnimation(originalPayload) {
+            state.isAnimating = true;
+            document.getElementById('btnSendPacket').disabled = true;
+
+            const packet = document.getElementById('animatedPacket');
+            const packetCircle = document.getElementById('packetCircle');
+            const packetText = document.getElementById('packetText');
+            
+            // Nodes locations approximate in SVG space (Client: ~120, MitM: ~380, Server: ~680)
+            const xClient = 120;
+            const xMitm = 380;
+            const xServer = 680;
+            const yPos = 128;
+
+            packet.setAttribute('opacity', '1');
+
+            // Phase 1: Client -> MitM
+            let startTime = null;
+            const duration1 = 1200; // ms
+
+            // Determine Appearance based on Encryption Mode
+            if (state.protocol === 'http') {
+                packetCircle.setAttribute('fill', '#f59e0b'); // Amber / Plaintext
+                packetText.innerText = "HTTP [RAW]";
+                packetText.setAttribute('fill', '#fbbf24');
+            } else if (state.protocol === 'https-weak') {
+                packetCircle.setAttribute('fill', '#a855f7'); // Purple / Unverified SSL
+                packetText.innerText = "HTTPS [WEAK]";
+                packetText.setAttribute('fill', '#c084fc');
+            } else {
+                packetCircle.setAttribute('fill', '#10b981'); // Emerald / TLS Encrypted
+                packetText.innerText = "TLS 1.3 🔒";
+                packetText.setAttribute('fill', '#34d399');
+            }
+
+            playBeep(400, 'sine', 0.2);
+
+            function animatePhase1(timestamp) {
+                if (!startTime) startTime = timestamp;
+                const elapsed = timestamp - startTime;
+                const progress = Math.min(elapsed / duration1, 1);
+                const currentX = xClient + (xMitm - xClient) * progress;
+
+                packet.setAttribute('transform', `translate(${currentX}, ${yPos})`);
+
+                if (progress < 1) {
+                    requestAnimationFrame(animatePhase1);
+                } else {
+                    // Packet arrived at MitM Node
+                    handleMitmInterception(originalPayload);
+                }
+            }
+
+            requestAnimationFrame(animatePhase1);
+        }
+
+        function handleMitmInterception(originalPayload) {
+            playBeep(250, 'square', 0.3);
+
+            let payloadToForward = JSON.parse(JSON.stringify(originalPayload));
+            let isTampered = false;
+            let isSniffed = false;
+
+            const mitmNode = document.getElementById('nodeMitm');
+            mitmNode.classList.add('scale-110');
+
+            if (state.protocol === 'http') {
+                // Fully vulnerable
+                if (state.mitmMode === 'sniff') {
+                    isSniffed = true;
+                    logConsole(`[MITM ATTACKER] Przechwycono pakiet HTTP! Hasło: "${originalPayload.authToken}", Odbiorca: "${originalPayload.recipientAccount}"`, 'text-amber-400 font-bold');
+                } else if (state.mitmMode === 'tamper') {
+                    isTampered = true;
+                    payloadToForward.recipientAccount = document.getElementById('mitmNewRecipient').value;
+                    payloadToForward.amountPLN = parseFloat(document.getElementById('mitmNewAmount').value);
+                    logConsole(`[MITM ATTACKER] PODMIENIONO DANE! Zmiana odbiorcy na: ${payloadToForward.recipientAccount}, Kwota: ${payloadToForward.amountPLN} PLN`, 'text-rose-400 font-bold');
+                } else {
+                    logConsole(`[MITM ATTACKER] Przepuszczono pakiet bez modyfikacji (Pass-through).`, 'text-slate-400');
+                }
+            } else if (state.protocol === 'https-weak') {
+                // Weak HTTPS (Attacker forged SSL certificate or stripped TLS)
+                if (state.mitmMode === 'sniff') {
+                    isSniffed = true;
+                    logConsole(`[MITM ATTACKER] Odszyfrowano słaby certyfikat TLS! Zapisano dane w jawnym tekście.`, 'text-amber-400 font-bold');
+                } else if (state.mitmMode === 'tamper') {
+                    isTampered = true;
+                    payloadToForward.recipientAccount = document.getElementById('mitmNewRecipient').value;
+                    payloadToForward.amountPLN = parseFloat(document.getElementById('mitmNewAmount').value);
+                    logConsole(`[MITM ATTACKER] Podmieniono dane po odszyfrowaniu słabego TLS!`, 'text-rose-400 font-bold');
+                }
+            } else {
+                // Secure HTTPS + TLS 1.3
+                if (state.mitmMode !== 'passthrough') {
+                    logConsole(`[MITM ATTACKER] Próba przechwycenia nieudana! Szyfrogram TLS 1.3 nieczytelny. Brak klucza prywatnego CA.`, 'text-emerald-400');
+                }
+            }
+
+            // Pause at MitM Node for visual effect, then forward to Server
+            setTimeout(() => {
+                mitmNode.classList.remove('scale-110');
+                animatePhase2(payloadToForward, isTampered, isSniffed);
+            }, 900);
+        }
+
+        function animatePhase2(finalPayload, isTampered, isSniffed) {
+            const packet = document.getElementById('animatedPacket');
+            const packetCircle = document.getElementById('packetCircle');
+            const packetText = document.getElementById('packetText');
+
+            const xMitm = 380;
+            const xServer = 680;
+            const yPos = 128;
+
+            // Change appearance based on tampering status
+            if (isTampered) {
+                packetCircle.setAttribute('fill', '#f43f5e'); // Red / Tampered
+                packetText.innerText = "TAMPERED ⚠️";
+                packetText.setAttribute('fill', '#fda4af');
+                playBeep(200, 'sawtooth', 0.2);
+            } else if (isSniffed) {
+                packetCircle.setAttribute('fill', '#f59e0b');
+                packetText.innerText = "SNIFFED 👁️";
+                packetText.setAttribute('fill', '#fde047');
+            }
+
+            let startTime = null;
+            const duration2 = 1200;
+
+            function animateStep(timestamp) {
+                if (!startTime) startTime = timestamp;
+                const elapsed = timestamp - startTime;
+                const progress = Math.min(elapsed / duration2, 1);
+                const currentX = xMitm + (xServer - xMitm) * progress;
+
+                packet.setAttribute('transform', `translate(${currentX}, ${yPos})`);
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateStep);
+                } else {
+                    // Packet arrived at Server
+                    packet.setAttribute('opacity', '0');
+                    handleServerProcessing(finalPayload, isTampered);
+                }
+            }
+
+            requestAnimationFrame(animateStep);
+        }
+
+        function handleServerProcessing(receivedPayload, isTampered) {
+            state.isAnimating = false;
+            document.getElementById('btnSendPacket').disabled = false;
+
+            const serverNode = document.getElementById('nodeServer');
+            serverNode.classList.add('scale-110');
+
+            setTimeout(() => serverNode.classList.remove('scale-110'), 500);
+
+            // If Secure HTTPS mode, TLS integrity check succeeds and no tampering can occur
+            if (state.protocol === 'https-secure') {
+                document.getElementById('codeServerPayload').innerText = JSON.stringify(receivedPayload, null, 2);
+                document.getElementById('inspectorStatusBadge').innerText = "SUKCES: Szyfrowanie Bezpieczne";
+                document.getElementById('inspectorStatusBadge').className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800";
+                
+                logConsole(`[SERWER BANKU] Odebrano i pomyślnie zweryfikowano podpis TLS 1.3. Transakcja bezpieczna.`, 'text-emerald-400 font-bold');
+                executeBankTransaction(receivedPayload, false);
+                playBeep(800, 'sine', 0.2);
+                return;
+            }
+
+            // HTTP / Weak HTTPS processing
+            document.getElementById('codeServerPayload').innerText = JSON.stringify(receivedPayload, null, 2);
+
+            if (isTampered) {
+                document.getElementById('inspectorStatusBadge').innerText = "ALARM: Wykryto Podmianę Danych!";
+                document.getElementById('inspectorStatusBadge').className = "text-[10px] font-mono px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800";
+                logConsole(`[SERWER BANKU] KRYTYCZNE OSTRZEŻENIE! Wykonano sfałszowany przelew do nieznanego odbiorcy!`, 'text-rose-400 font-bold');
+                executeBankTransaction(receivedPayload, true);
+                playBeep(150, 'sawtooth', 0.5);
+            } else {
+                document.getElementById('inspectorStatusBadge').innerText = "Odebrano (Brak modyfikacji)";
+                document.getElementById('inspectorStatusBadge').className = "text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800";
+                logConsole(`[SERWER BANKU] Executed transaction for ${receivedPayload.recipientAccount}`, 'text-emerald-400');
+                executeBankTransaction(receivedPayload, false);
+                playBeep(600, 'sine', 0.2);
+            }
+        }
+
+        function executeBankTransaction(payload, isFraud) {
+            state.bankBalance -= payload.amountPLN;
+            document.getElementById('bankBalance').innerText = state.bankBalance.toLocaleString('pl-PL', { minimumFractionDigits: 2 }) + ' PLN';
+
+            const ledger = document.getElementById('bankLedgerList');
+
+            // Remove placeholder if exists
+            if (ledger.children.length === 1 && ledger.children[0].classList.contains('italic')) {
+                ledger.innerHTML = '';
+            }
+
+            const item = document.createElement('div');
+            item.className = `p-2.5 rounded-lg border text-xs flex justify-between items-center ${
+                isFraud ? 'bg-rose-950/40 border-rose-800/80 text-rose-200' : 'bg-slate-950 border-slate-800 text-slate-200'
+            }`;
+
+            const timeStr = new Date().toLocaleTimeString('pl-PL', { hour12: false });
+
+            item.innerHTML = `
+                <div>
+                    <div class="flex items-center gap-2">
+                        ${isFraud ? '<span class="px-1.5 py-0.2 bg-rose-500 text-slate-950 font-bold text-[9px] rounded uppercase">OSZUSTWO (MitM)</span>' : '<span class="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-400 font-bold text-[9px] rounded uppercase">OK</span>'}
+                        <span class="font-bold text-[11px]">${payload.recipientAccount}</span>
+                    </div>
+                    <span class="text-[10px] text-slate-400 block mt-0.5">Tytuł: "${payload.title}" • Time: ${timeStr}</span>
+                </div>
+                <div class="text-right">
+                    <span class="font-mono font-bold ${isFraud ? 'text-rose-400' : 'text-slate-200'}">-${payload.amountPLN.toLocaleString('pl-PL')} PLN</span>
+                </div>
+            `;
+
+            ledger.prepend(item);
+        }
+
+        function resetSimulation() {
+            state.bankBalance = 100000.00;
+            document.getElementById('bankBalance').innerText = '100 000.00 PLN';
+            document.getElementById('bankLedgerList').innerHTML = `
+                <div class="text-[11px] text-slate-500 italic text-center py-4 border border-dashed border-slate-800 rounded-lg">
+                    Brak zarejestrowanych transakcji. Wyślij formularz, aby przetestować ruch.
+                </div>
+            `;
+            document.getElementById('codeClientPayload').innerText = '{}';
+            document.getElementById('codeServerPayload').innerText = '{}';
+            document.getElementById('inspectorStatusBadge').innerText = 'Oczekiwanie na ruch...';
+            document.getElementById('inspectorStatusBadge').className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400';
+            clearConsole();
+            playBeep(500);
+        }
+
+        // Initialize default UI state on load
+        window.onload = function() {
+            setProtocol('http');
+            updateMitmSettings();
+        };
+    </script>
+</body>
+</html>

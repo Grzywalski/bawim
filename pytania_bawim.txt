@@ -1,0 +1,34 @@
+1. Które z poniższych mechanizmów pozwalają atakującemu na przechwycenie ruchu w sieci lokalnej przed dotarciem pakietów do bramy domyślnej?
+
+A) ARP Spoofing polegający na rozgłaszaniu sfałszowanych powiązań adresów IP i MAC   #########poprawne
+B) Wdrożenie nagłówka HSTS na serwerze docelowym
+C) Uruchomienie fałszywego punktu dostępowego typu Evil Twin o identycznym identyfikatorze SSID     #####poprawne
+D) Zastosowanie szyfrowania End-to-End (E2EE) w aplikacji klienckiej
+
+2. Dlaczego nowoczesne ataki typu AiTM (Adversary-in-the-Middle) potrafią ominąć tradycyjne uwierzytelnianie dwuskładnikowe (np. kody SMS) i co skutecznie przed nimi chroni? (Wybierz wszystkie poprawne odpowiedzi)
+
+A) Atakujący przechwytuje wygenerowane przez serwer ciasteczko sesyjne (token) już po poprawnym zalogowaniu się ofiary.          #####poprawne
+B) Kody SMS są przesyłane otwartym tekstem w lokalnej sieci Wi-Fi ofiary, więc można je łatwo podsłuchać.
+C) Skuteczną ochroną są klucze sprzętowe FIDO2 / Passkeys, ponieważ kryptograficznie wiążą proces logowania z prawdziwą domeną.           #####poprawne
+D) Wystarczy włączyć nagłówek HSTS na serwerze, aby całkowicie zablokować phishing oparty na serwerze proxy.
+
+3. Na czym polega atak SSL Stripping oraz jaki mechanizm bezpośrednio mu zapobiega?
+
+A) Polega na kradzieży klucza prywatnego serwera; zapobiega mu regularna zmiana hasła do routera.
+B) Polega na wymuszeniu połączenia po nieszyfrowanym HTTP zamiast HTTPS; zapobiega mu nagłówek HSTS (HTTP Strict Transport Security).     #####poprawne
+C) Polega na podrobieniu certyfikatu SSL przez urząd certyfikacji; zapobiega mu korzystanie z trybu incognito w przeglądarce.
+D) Polega na zablokowaniu zapytań DNS; zapobiega mu wyłączenie automatycznego łączenia z siecią Wi-Fi.
+
+4. W jakich sytuacjach mechanizm technicznie odpowiadający atakowi Man-in-the-Middle jest wykorzystywany legalnie przez organizacje?
+
+A) Inspekcja ruchu szyfrowanego SSL/TLS przez korporacyjne zapory sieciowe (NGFW) i systemy DLP      #####poprawne
+B) Przechwytywanie haseł bankowych pracowników w publicznych kawiarniach
+C) Debugowanie i analiza zapytań API przez programistów z użyciem lokalnego serwera proxy    #####poprawne
+D) Nieautoryzowana podmiana numerów kont na fakturach przesyłanych pocztą elektroniczną
+
+5. Które mechanizmy bezpośrednio chronią użytkowników lub infrastrukturę sieciową przed przekierowaniem ruchu na fałszywy serwer w wyniku zatrucia pamięci podręcznej DNS (DNS Spoofing) lub podszywania się pod bramę w sieci lokalnej?
+
+A) Protokół DNSSEC zapewniający kryptograficzne podpisywanie rekordów DNS     #####poprawne
+B) Funkcja Dynamic ARP Inspection (DAI) na przełącznikach sieciowych weryfikująca powiązania adresów IP i MAC    #####poprawne
+C) Zmiana domyślnego portu serwera WWW z 80 na 8080
+D) Włączenie obsługi plików cookie stron trzecich (Third-Party Cookies) w przeglądarce
